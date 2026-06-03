@@ -1,4 +1,4 @@
-﻿namespace ExamSimulator.Models
+﻿namespace TestTrainer.Models
 {
     public interface IQuestion
     {
