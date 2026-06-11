@@ -1,0 +1,39 @@
+{
+  "TopicName": "Csharp_Basics",
+  "OpenQuestions": [
+    {
+      "Text": "Який тип даних використовується для логічних значень (істина/хибність) у C#?",
+      "CorrectAnswer": "bool",
+      "Difficulty": 0
+    },
+    {
+      "Text": "Яким ключовим словом оголошується клас у C#?",
+      "CorrectAnswer": "class",
+      "Difficulty": 0
+    }
+  ],
+  "SingleChoiceQuestions": [
+    {
+      "Text": "Який цикл виконується хоча б один раз, навіть якщо умова хибна?",
+      "Options": [
+        "for",
+        "while",
+        "do-while",
+        "foreach"
+      ],
+      "CorrectOptionIndex": 2,
+      "Difficulty": 1
+    },
+    {
+      "Text": "Що з наведеного є типом значення (value type) у C#?",
+      "Options": [
+        "string",
+        "int",
+        "class",
+        "object"
+      ],
+      "CorrectOptionIndex": 1,
+      "Difficulty": 1
+    }
+  ]
+}
