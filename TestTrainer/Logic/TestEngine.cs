@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using TestTrainer.Models;
 using TestTrainer.Data;
 
@@ -9,47 +10,71 @@ namespace TestTrainer.Logic
     public class TestEngine
     {
         private TestRepository _repository;
-        private List<OpenQuestion> _questions;
+        private AppConfig _config;
 
         public event TestFinishedHandler OnTestFinished;
 
-        public TestEngine(string filePath)
+        public TestEngine(string dataDirectory)
         {
-            _repository = new TestRepository(filePath);
-            _questions = new List<OpenQuestion>();
+            _repository = new TestRepository(dataDirectory);
+            _config = _repository.LoadConfig();
         }
 
-        public void LoadAndShuffleQuestions()
+        public void RunSession(string topicName)
         {
-            _questions = _repository.LoadQuestions();
+            TestTopic topic = _repository.LoadTopic(topicName);
+            List<BaseQuestion> sessionQuestions = new List<BaseQuestion>();
+
+            for (int i = 0; i < topic.OpenQuestions.Count; i++)
+            {
+                sessionQuestions.Add(topic.OpenQuestions[i]);
+            }
+
+            for (int i = 0; i < topic.SingleChoiceQuestions.Count; i++)
+            {
+                sessionQuestions.Add(topic.SingleChoiceQuestions[i]);
+            }
+
+            int totalAvailable = sessionQuestions.Count;
+            if (totalAvailable == 0)
+            {
+                Console.WriteLine("No questions found for this topic.");
+                return;
+            }
 
             Random rng = new Random();
-            int n = _questions.Count;
+            int n = totalAvailable;
             while (n > 1)
             {
                 n--;
                 int k = rng.Next(n + 1);
-                OpenQuestion value = _questions[k];
-                _questions[k] = _questions[n];
-                _questions[n] = value;
+                BaseQuestion value = sessionQuestions[k];
+                sessionQuestions[k] = sessionQuestions[n];
+                sessionQuestions[n] = value;
             }
-        }
 
-        public void RunSession()
-        {
+            int questionsToAsk = totalAvailable;
+            if (_config.MaxQuestionsPerSession < totalAvailable)
+            {
+                questionsToAsk = _config.MaxQuestionsPerSession;
+            }
+
             int score = 0;
-            int total = _questions.Count;
 
-            if (total == 0)
+            for (int i = 0; i < questionsToAsk; i++)
             {
-                Console.WriteLine("No questions found in file.");
-                return;
-            }
+                BaseQuestion currentQ = sessionQuestions[i];
+                Console.WriteLine("\nQuestion " + (i + 1) + ": " + currentQ.Text);
 
-            for (int i = 0; i < total; i++)
-            {
-                OpenQuestion currentQ = _questions[i];
-                Console.WriteLine("Question " + (i + 1) + ": " + currentQ.Text);
+                if (currentQ is SingleChoiceQuestion)
+                {
+                    SingleChoiceQuestion scq = (SingleChoiceQuestion)currentQ;
+                    for (int j = 0; j < scq.Options.Count; j++)
+                    {
+                        Console.WriteLine((j + 1) + ". " + scq.Options[j]);
+                    }
+                }
+
                 Console.Write("Your answer: ");
                 string answer = Console.ReadLine();
 
@@ -60,13 +85,32 @@ namespace TestTrainer.Logic
                 }
                 else
                 {
-                    Console.WriteLine("Wrong! Correct answer was: " + currentQ.CorrectAnswer);
+                    Console.WriteLine("Wrong!");
+
+                    if (_config.ShowCorrectAnswerImmediately == true)
+                    {
+                        if (currentQ is OpenQuestion)
+                        {
+                            Console.WriteLine("Correct answer was: " + ((OpenQuestion)currentQ).CorrectAnswer);
+                        }
+                        else if (currentQ is SingleChoiceQuestion)
+                        {
+                            SingleChoiceQuestion scq = (SingleChoiceQuestion)currentQ;
+                            Console.WriteLine("Correct option was: " + (scq.CorrectOptionIndex + 1));
+                        }
+                    }
                 }
             }
 
+            TestResult result = new TestResult();
+            result.TopicName = topic.TopicName;
+            result.Score = score;
+            result.TotalQuestions = questionsToAsk;
+            _repository.AppendHistory(result);
+
             if (OnTestFinished != null)
             {
-                OnTestFinished(score, total);
+                OnTestFinished(score, questionsToAsk);
             }
         }
     }
