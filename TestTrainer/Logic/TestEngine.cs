@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using TestTrainer.Models;
 using TestTrainer.Data;
 
@@ -43,6 +42,7 @@ namespace TestTrainer.Logic
             }
 
             Random rng = new Random();
+
             int n = totalAvailable;
             while (n > 1)
             {
@@ -60,6 +60,7 @@ namespace TestTrainer.Logic
             }
 
             int score = 0;
+            List<string> errorReport = new List<string>();
 
             for (int i = 0; i < questionsToAsk; i++)
             {
@@ -69,6 +70,27 @@ namespace TestTrainer.Logic
                 if (currentQ is SingleChoiceQuestion)
                 {
                     SingleChoiceQuestion scq = (SingleChoiceQuestion)currentQ;
+
+                    string correctText = scq.Options[scq.CorrectOptionIndex];
+                    int optCount = scq.Options.Count;
+                    while (optCount > 1)
+                    {
+                        optCount--;
+                        int k = rng.Next(optCount + 1);
+                        string tmp = scq.Options[k];
+                        scq.Options[k] = scq.Options[optCount];
+                        scq.Options[optCount] = tmp;
+                    }
+
+                    for (int j = 0; j < scq.Options.Count; j++)
+                    {
+                        if (scq.Options[j] == correctText)
+                        {
+                            scq.CorrectOptionIndex = j;
+                            break;
+                        }
+                    }
+
                     for (int j = 0; j < scq.Options.Count; j++)
                     {
                         Console.WriteLine((j + 1) + ". " + scq.Options[j]);
@@ -80,24 +102,20 @@ namespace TestTrainer.Logic
 
                 if (currentQ.CheckAnswer(answer) == true)
                 {
-                    Console.WriteLine("Correct!");
+                    Console.WriteLine("Accepted.");
                     score++;
                 }
                 else
                 {
-                    Console.WriteLine("Wrong!");
-
-                    if (_config.ShowCorrectAnswerImmediately == true)
+                    Console.WriteLine("Accepted.");
+                    if (currentQ is OpenQuestion)
                     {
-                        if (currentQ is OpenQuestion)
-                        {
-                            Console.WriteLine("Correct answer was: " + ((OpenQuestion)currentQ).CorrectAnswer);
-                        }
-                        else if (currentQ is SingleChoiceQuestion)
-                        {
-                            SingleChoiceQuestion scq = (SingleChoiceQuestion)currentQ;
-                            Console.WriteLine("Correct option was: " + (scq.CorrectOptionIndex + 1));
-                        }
+                        errorReport.Add("Question: " + currentQ.Text + " | Your answer was wrong. Correct: " + ((OpenQuestion)currentQ).CorrectAnswer);
+                    }
+                    else if (currentQ is SingleChoiceQuestion)
+                    {
+                        SingleChoiceQuestion scq = (SingleChoiceQuestion)currentQ;
+                        errorReport.Add("Question: " + currentQ.Text + " | Your answer was wrong. Correct option: " + (scq.CorrectOptionIndex + 1));
                     }
                 }
             }
@@ -111,6 +129,19 @@ namespace TestTrainer.Logic
             if (OnTestFinished != null)
             {
                 OnTestFinished(score, questionsToAsk);
+            }
+
+            if (errorReport.Count > 0)
+            {
+                Console.WriteLine("\nREVIEW YOUR MISTAKES");
+                for (int i = 0; i < errorReport.Count; i++)
+                {
+                    Console.WriteLine(errorReport[i]);
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nPerfect! No mistakes made!");
             }
         }
     }
