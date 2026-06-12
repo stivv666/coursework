@@ -6,10 +6,8 @@
 
         public override bool CheckAnswer(string userAnswer)
         {
-            if (string.IsNullOrEmpty(userAnswer) || string.IsNullOrEmpty(CorrectAnswer))
-                return false;
-
-            return userAnswer.Trim().ToLower() == CorrectAnswer.Trim().ToLower();
+            if (string.IsNullOrWhiteSpace(userAnswer)) return false;
+            return userAnswer.Trim().Equals(CorrectAnswer.Trim(), System.StringComparison.OrdinalIgnoreCase);
         }
     }
 }

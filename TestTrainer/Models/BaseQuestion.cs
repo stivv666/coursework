@@ -1,6 +1,6 @@
 ﻿namespace TestTrainer.Models
 {
-    public abstract class BaseQuestion : IQuestion
+    public abstract class BaseQuestion
     {
         public string Text { get; set; }
         public QuestionDifficulty Difficulty { get; set; }

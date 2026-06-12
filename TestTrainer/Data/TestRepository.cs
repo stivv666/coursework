@@ -1,20 +1,54 @@
 ﻿using System;
 using System.Text.Json;
+using TestTrainer.Exceptions;
 using TestTrainer.Models;
 
 namespace TestTrainer.Data
 {
-    public class TestRepository
+    public class TestRepository : ITestRepository
     {
-        private string _dataDirectory;
+        private readonly string _dataFolder;
 
-        public TestRepository(string dataDirectory)
+        public TestRepository(string dataFolder)
         {
-            _dataDirectory = dataDirectory;
+            _dataFolder = dataFolder;
+        }
 
-            if (Directory.Exists(_dataDirectory) == false)
+        public TestTopic LoadTopic(string topicName)
+        {
+            string filePath = Path.Combine(_dataFolder, $"{topicName}.json");
+
+            try
             {
-                Directory.CreateDirectory(_dataDirectory);
+                if (!File.Exists(filePath))
+                {
+                    return new TestTopic { TopicName = topicName };
+                }
+
+                string jsonString = File.ReadAllText(filePath);
+                var topic = JsonSerializer.Deserialize<TestTopic>(jsonString);
+
+                if (topic == null || string.IsNullOrWhiteSpace(topic.TopicName))
+                {
+                    throw new InvalidTestFormatException($"Тема '{topicName}' завантажилася некоректно або не має назви.");
+                }
+
+                return topic;
+            }
+            catch (InvalidTestFormatException ex)
+            {
+                Console.WriteLine($"\n[Помилка Формату] {ex.Message}");
+                return new TestTopic { TopicName = topicName };
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"\n[Помилка JSON] Файл теми '{topicName}' пошкоджений! Системне повідомлення: {ex.Message}");
+                return new TestTopic { TopicName = topicName };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Критична Помилка] Збій при завантаженні: {ex.Message}");
+                return new TestTopic { TopicName = topicName };
             }
         }
 
@@ -22,93 +56,64 @@ namespace TestTrainer.Data
         {
             try
             {
-                JsonSerializerOptions options = new JsonSerializerOptions();
-                options.WriteIndented = true;
+                if (!Directory.Exists(_dataFolder))
+                {
+                    Directory.CreateDirectory(_dataFolder);
+                }
 
-                string jsonString = JsonSerializer.Serialize(topic, options);
-                string filePath = _dataDirectory + "/" + topic.TopicName + ".json";
+                string filePath = Path.Combine(_dataFolder, $"{topic.TopicName}.json");
+
+                string jsonString = JsonSerializer.Serialize(topic, new JsonSerializerOptions { WriteIndented = true });
+
                 File.WriteAllText(filePath, jsonString);
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
             {
-                Console.WriteLine("Error saving topic: " + ex.Message);
-            }
-        }
-
-        public TestTopic LoadTopic(string topicName)
-        {
-            try
-            {
-                string filePath = _dataDirectory + "/" + topicName + ".json";
-                if (File.Exists(filePath) == false)
-                {
-                    TestTopic newTopic = new TestTopic();
-                    newTopic.TopicName = topicName;
-                    return newTopic;
-                }
-
-                string jsonString = File.ReadAllText(filePath);
-                TestTopic topic = JsonSerializer.Deserialize<TestTopic>(jsonString);
-
-                if (topic != null)
-                {
-                    return topic;
-                }
-                else
-                {
-                    return new TestTopic();
-                }
+                Console.WriteLine($"\n[Помилка Доступу] Немає прав для збереження файлу! Деталі: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error reading topic: " + ex.Message);
-                return new TestTopic();
+                Console.WriteLine($"\n[Критична Помилка] Не вдалося зберегти тему: {ex.Message}");
             }
         }
-        public AppConfig LoadConfig()
-        {
-            try
-            {
-                string filePath = _dataDirectory + "/config.json";
-                if (File.Exists(filePath) == false)
-                {
-                    AppConfig defaultConfig = new AppConfig();
-                    JsonSerializerOptions options = new JsonSerializerOptions();
-                    options.WriteIndented = true;
-                    File.WriteAllText(filePath, JsonSerializer.Serialize(defaultConfig, options));
-                    return defaultConfig;
-                }
 
-                string jsonString = File.ReadAllText(filePath);
-                AppConfig config = JsonSerializer.Deserialize<AppConfig>(jsonString);
 
-                if (config != null)
-                {
-                    return config;
-                }
-                else
-                {
-                    return new AppConfig();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error reading config: " + ex.Message);
-                return new AppConfig();
-            }
-        }
         public void AppendHistory(TestResult result)
         {
             try
             {
-                string filePath = _dataDirectory + "/history.txt";
-                string line = result.DateTaken + " | Topic: " + result.TopicName + " | Score: " + result.Score + "/" + result.TotalQuestions + "\n";
-                File.AppendAllText(filePath, line);
+                string path = Path.Combine(_dataFolder, "history.txt");
+
+                double percent = result.TotalQuestions > 0 ? (double)result.Score / result.TotalQuestions * 100 : 0;
+
+                string historyLine = $"[{DateTime.Now:dd.MM.yyyy HH:mm}] Бали: {result.Score} з {result.TotalQuestions} ({percent:F1}%)";
+
+                File.AppendAllText(path, historyLine + Environment.NewLine);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error saving history: " + ex.Message);
+                Console.WriteLine($"\n[Помилка] Не вдалося зберегти історію: {ex.Message}");
             }
+        }
+
+        public AppConfig LoadConfig()
+        {
+            try
+            {
+                string path = Path.Combine(_dataFolder, "config.json");
+                if (File.Exists(path))
+                {
+                    string jsonString = File.ReadAllText(path);
+                    var config = JsonSerializer.Deserialize<AppConfig>(jsonString);
+                    return config ?? new AppConfig();
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+
+            return new AppConfig();
         }
     }
 }
